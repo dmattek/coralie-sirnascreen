@@ -1,0 +1,32 @@
+f.ts,						Merged/cp.out/output.mer/objNuc_1line_clean_tracks.csv.gz, "Filename with single-cell data; relative to root"
+f.rec,						Receptor/cp.out/output.mer/objNuc.csv.gz, "Filename with receptor snapshot; relative to root"
+f.pm,						20190620_NIH3T3_syst_II_siPOOL_1s100perc.xlsx, "Plate map; relative to root"
+dir.data,					output-data, "Folder to save output; relative to root"
+dir.plots,					output-plots, "Folder to save plots; relative to root"
+f.out.rec,					receptorMatchedToTracks_cleaned.csv, "Name of the output file with receptor data matched to track ids"
+f.out.ts,					tCoursesSelected_cleaned.csv, "Name of the output file with selected time courses"
+ts.maxbreak,				1, "Maximum allowed break in time series during selection of time courses"
+ts.freq,					1, "Time in minutes corresponding to 1 acquisition frame"
+ts.maxframebase, 			5, "Maximum number of frames to calculate baseline statistics"
+ts.stimt,					9, "Time of stimulation in minutes"
+rec.int.min, 				0.05, "Lower quantile for removing receptor intensities"
+rec.int.max, 				0.95, "Upper quantile for removing receptor intensities"
+imerk.cell.meanint.thresh,	0.01, "threshold of mean intensity in the nuclear channel below which cells are considered non-expressing"
+max.dist,					10, "Maximum distance in pixels for fuzzy join based on xy positions of the nucleus"
+imerk.nuc.meanint,			objNuc_Intensity_MeanIntensity_imErkCorrOrig,
+imerk.cyto.ring.meanint,	objCyto_ring_Intensity_MeanIntensity_imErkCorrOrig,
+imerk.cell.meanint,			obj_ring_Intensity_MeanIntensity_imErkCorrOrig,
+imnuc.nuc.meanint,			objNuc_Intensity_MeanIntensity_imNuc,
+imrec.rec.meanint,			obj_Rec_Intensity_MeanIntensity_imRecCorrOrig,
+imrec.cyto.ring.meanint,	objCyto_ring_Intensity_MeanIntensity_imRecCorrOrig,
+imrec.nuc.meanint,			objNuc_Intensity_MeanIntensity_imRecCorrOrig,
+imrec.cell.meanint,			obj_totalCell_Intensity_MeanIntensity_imRecCorrOrig,
+met.objnum,					objNuc_ObjectNumber,
+met.fov,					Image_Metadata_Site, "Field of view"
+met.frame,					Image_Metadata_T, "Frame number"
+met.trackid,				track_id, "Track ID from tracking algorithm"
+met.treat,					Stimulation_treatment, "Column with siRNA treatment in platemap"
+met.group,					Grouping, "Column with grouping of siRNA treatment in platemap"
+pos.x,						objNuc_Location_Center_X,
+pos.y,						objNuc_Location_Center_Y,
+met.rt,						RealTime, "Column with time assigned in the script"
