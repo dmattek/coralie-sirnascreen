@@ -276,7 +276,7 @@ l.col$pos.y = l.par$pos.y
 
 # col names to be assigned in this script
 l.col$joindist = 'join_dist'
-l.col$met.trackiduni = 'track_iduni'
+l.col$met.trackiduni = 'track_id_uni'
 
 # Load data ----
 

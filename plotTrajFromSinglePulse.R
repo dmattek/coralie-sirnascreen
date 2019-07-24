@@ -189,9 +189,6 @@ cat(sprintf('Working in:\n%s\n\n', l.par$dir.root))
 l.par$trim.low = 0.05
 l.par$trim.high = 0.95
 
-# maximum number of frames to take for averaging. Used for cleaning data based on ERK
-l.par$max.frame = 5
-
 ## Set other variables ----
 
 l.col = list()
@@ -242,9 +239,9 @@ cat(sprintf('\nCleaning data\n'))
 # add unique track ids to receptor data
 dt.rec[, (l.col$met.trackiduni) := paste0(get(l.col$met.fov), '_', get(l.col$met.trackid))]
 
-## Trim time-series data based on ERK-KTR level
+## Remove time-series based on ERK-KTR level
 # calculate the mean of first 4 time points
-dt.ts.base = dt.ts[get(l.col$met.frame) < l.par$max.frame, .(xxx = mean(get(l.col$imerk.cell.meanint))), by = c(l.col$met.trackiduni)]
+dt.ts.base = dt.ts[get(l.col$met.frame) < l.par$ts.maxframebase, .(xxx = mean(get(l.col$imerk.cell.meanint))), by = c(l.col$met.trackiduni)]
 
 l.p$dens.ts = ggplot(data = dt.ts.base, aes_string(x = paste0('log10(xxx)'))) +
   geom_density() +
