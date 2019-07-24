@@ -175,7 +175,7 @@ LOCreadPar = function(in.fname, in.sheet.idx = 1) {
                                              sheet = in.sheet.idx, 
                                              col_names = F))
   } else if( length(grep('.csv', in.fname)) > 0 ) {
-    df.par = read.csv(file = in.fname,  header = F, sep = ',', stringsAsFactors = F)
+    df.par = read.csv(file = in.fname,  header = F, sep = ',', stringsAsFactors = F, strip.white = T)
   } else
     stop('LOCreadPar: file with parameters is neither a csv, nor an xlsx', call. = F)
   
@@ -246,6 +246,10 @@ cat(sprintf('Reading parameters of the analysis from:\n%s\n\n', path.expand(opt$
 #opt$rootdir = '/Volumes/MacintoshHD/tmp/Coralie/20190311_systII_siPOOLs_plate1_and_2_singlePulse/20190311_102308_731/'
 #opt$plotformat = 'plotFormat.csv'
 
+#opt$rootdir = '/Volumes/MacintoshHD/tmp/Coralie/20190620_113936_274'
+#opt$plotformat = '/Volumes/MacintoshHD/tmp/Coralie/20190620_113936_274/plotFormat.csv'
+
+
 l.par = LOCreadPar(file.path(opt$plotformat))
 
 l.par$dir.root = opt$rootdir
@@ -310,13 +314,6 @@ dt.ts.sel = LOCtrajExtr(in.dt = dt.ts,
 
 if (opt$debug)
   cat(sprintf("%d full tracks selected\n", length(unique(dt.ts.sel[[l.col$met.trackiduni]]))))
-
-# 3.Remove track without nuclear intensity at t=0
-# Create a vector with unique cellID of cells expressing no ERK-KTR in nucleus at t=0
-v.cellID.tmp = unique(dt.ts.sel[get(l.col$imerk.cell.meanint) < l.par$imerk.cell.meanint.thresh & get(l.col$met.frame) == 0][[l.col$met.trackiduni]])
-
-# Remove cells without nuclear ERK-KTR based on these ID 
-dt.ts.sel = dt.ts.sel[!(get(l.col$met.trackiduni) %in% v.cellID.tmp)]
 
 
 # Add track ids to receptor data ----
