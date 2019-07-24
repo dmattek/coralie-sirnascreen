@@ -593,7 +593,7 @@ Map(function (x, i) {
 cat(sprintf('Analysis finished successfully!\n'))
 
 # Save data for single-cell plots ----
-s.fname.tmp = file.path(l.par$dir.root, l.par$dir.data, 'tCoursesSelected_cleaned_CNerkWithMeta.csv')
+s.fname.tmp = file.path(l.par$dir.root, l.par$dir.data, paste0(gsub('.csv', '', l.par$f.out.ts), '_CNerkWithMeta.csv'))
 fwrite(x = LOCsignif_dt(dt.ts.plot, 6), file = s.fname.tmp, row.names = F)
 gzip(s.fname.tmp, overwrite = T)
 
