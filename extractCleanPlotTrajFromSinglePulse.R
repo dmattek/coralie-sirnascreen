@@ -222,15 +222,20 @@ LOCceiling_dec <- function(x, level=1) round(x + 5*10^(-level-1), level)
 
 option_list = list(
   optparse::make_option(c("-r", "--rootdir"), type="character", default=NULL, 
-                        help="path to root directory", metavar="character"),
+                        help="full path to root directory", metavar="character"),
   optparse::make_option(c("-f", "--plotformat"), type="character", default=NULL, 
-                        help="path to file with parameters of the analysis, csv or xlsx e.g. cp.out/plotFormat.xlsx", metavar="character"),
+                        help="full path to file with parameters of the analysis, csv or xlsx e.g. cp.out/plotFormat.xlsx", metavar="character"),
   optparse::make_option(c("-d", "--opt$debug"), action="store_true", default = FALSE, dest = 'debug', 
                         help="Print extra output")
 ); 
 
 opt_parser = optparse::OptionParser(option_list=option_list);
 opt = optparse::parse_args(opt_parser);
+
+# Temporary for executing from with RStudio
+#opt$rootdir = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per"
+#opt$plotformat = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per/plotFormat-5q50q.csv"
+#opt$debug = TRUE
 
 if (is.null(opt$rootdir)){
   optparse::print_help(opt_parser)
@@ -248,14 +253,6 @@ if (opt$debug)
 ## Read parameter file ----
 # The file can be either in csv or xlsx format.
 cat(sprintf('Reading parameters of the analysis from:\n%s\n\n', path.expand(opt$plotformat)))
-
-
-#opt$rootdir = '/Volumes/MacintoshHD/tmp/Coralie/20190311_systII_siPOOLs_plate1_and_2_singlePulse/20190311_102308_731/'
-#opt$plotformat = 'plotFormat.csv'
-
-#opt$rootdir = '/Volumes/MacintoshHD/tmp/Coralie/20190620_113936_274'
-#opt$plotformat = '/Volumes/MacintoshHD/tmp/Coralie/20190620_113936_274/plotFormat.csv'
-
 
 l.par = LOCreadPar(file.path(opt$plotformat))
 
@@ -362,10 +359,10 @@ rm(dt.ts.base)
 
 # Clean receptor data ----
 
-# 2. based on receptor level, taking inner region from 5-95%
-
+# Calculate quantiles by taking the region defined in the input parameter file
 v.quantiles = quantile(x = dt.rec[[l.col$imrec.rec.meanint]], probs = c(l.par$rec.int.min, l.par$rec.int.max))
 
+# make a plot for QC; save later to a file
 l.p$dens.rec = ggplot(data = dt.rec, aes_string(x = paste0('log10(', l.col$imrec.rec.meanint, ')'))) +
   geom_density() +
   geom_vline(xintercept = log10(v.quantiles), colour = 'red', linetype = 2) +
@@ -373,8 +370,7 @@ l.p$dens.rec = ggplot(data = dt.rec, aes_string(x = paste0('log10(', l.col$imrec
   ggtitle('Distribution of Receptor mean fl.int. from\nthe whole-cell area') +
   theme_bw()
 
-#l.p$dens.rec
-
+# select a percentile region of receptor intensities
 dt.rec = dt.rec[get(l.col$imrec.rec.meanint) > v.quantiles[1] & get(l.col$imrec.rec.meanint) < v.quantiles[2]]
 
 # clean
@@ -404,28 +400,72 @@ dt.rec.tmp = dt.rec[, c(l.col$met.fov,
 # rescale data; necessary if intensities also used together with position for fuzzy merge
 # dt.rec.tmp[, (v.cols.join) := lapply(.SD, function(x) as.vector(scale(x))), by = c(l.col$met.fov), .SDcols = v.cols.join]
 
-# apply fuzzy join individually to every FOV
-l.mer = lapply(sort(unique(dt.ts.lastframe[[l.col$met.fov]])), function(x) {
-  loc.dt = fuzzyjoin::distance_join(dt.ts.lastframe[get(l.col$met.fov) == x], 
-                                    dt.rec.tmp[get(l.col$met.fov) == x, c( l.col$met.objnum,
-                                                                           v.cols.join), with = F],
-                                    by = v.cols.join,
-                                    max_dist = l.par$max.dist,
-                                    distance_col = l.col$joindist, 
-                                    mode = 'left')
+
+# Fuzzy join on individual FOVs ----
+# Add this stage, receptor data is reduced but time series data from the last frame is full, 
+# hence left-join.
+
+# list of all FOVs available in the data
+vFOVs = sort(unique(dt.ts.lastframe[[l.col$met.fov]]))
+
+l.mer = lapply(vFOVs, function(x) {
+  # data for a single frame
+  loc.dt.ts  = dt.ts.lastframe[get(l.col$met.fov) == x]
+  loc.dt.rec = dt.rec.tmp[get(l.col$met.fov) == x, 
+                          c( l.col$met.objnum,
+                             v.cols.join), with = F]
   
-  if (opt$debug)
-    cat(sprintf("FOV %d, nrows %d\n", x, nrow(loc.dt)))
+  # checking number of rows
+  loc.nrow.dt.ts  = nrow(loc.dt.ts)
+  loc.nrow.dt.rec = nrow(loc.dt.rec)
+  
+  if (opt$debug) {
+    cat(sprintf("FOV %d, nrows dt.ts.lastframe = %d, dt.rec.tmp = %d\n", 
+                x, loc.nrow.dt.ts, loc.nrow.dt.rec))
+  }
+    
+  # Perform fuzzyjoin only if both tables have measurements
+  if (loc.nrow.dt.ts & loc.nrow.dt.rec) {
+    loc.dt = fuzzyjoin::distance_join(x = loc.dt.ts, 
+                                      y = loc.dt.rec,
+                                      method = "euclidean",
+                                      by = v.cols.join,
+                                      max_dist = l.par$max.dist,
+                                      distance_col = l.col$joindist, 
+                                      mode = 'left')
+    if (opt$debug)
+      cat(sprintf("   nrows after fuzzyjoin = %d\n", nrow(loc.dt)))
+    
+    # If no matches found from y, loc.dt WILL NOT HAVE join_dist column.
+    # Columns from y will be filled with NAs.
+    # Check for that and add join_dist column filled with NAs
+    
+    if (!(l.col$joindist %in% names(loc.dt))) {
+      loc.dt[, (l.col$joindist) := NA]
+      
+      if (opt$debug)
+        cat("   fuzzyjoin did not find any matching records from y\n")
+    }
+    
+  } else {
+    loc.dt = NULL
+    if (opt$debug)
+      cat("   fuzzyjoin not performed\n")
+  }
+  
   
   return(loc.dt)
 })
 
+
+# select list elements with nrows > 0
 l.mer = Filter(nrow, l.mer)
 
+# convert list to data.table
 dt.rec.mer = do.call(rbind, l.mer)
 
 # clean
-rm(l.mer, dt.rec.tmp, dt.ts.lastframe, v.cols.join)
+rm(l.mer, dt.rec.tmp, dt.ts.lastframe, v.cols.join, vFOVs)
 
 # report the number of unmatched cells
 # failure to match comes from too large of a distance between closest matches (see l.par$max.dist)
@@ -456,7 +496,7 @@ rm(n.failedmatches)
 
 dt.rec.mer.dupl = dt.rec.mer[(duplicated(dt.rec.mer[, c(l.col$met.fov, l.col$met.trackid), with = F]))]
 
-if (nrow(dt.rec.mer.dupl) > 0 ) {
+if (nrow(dt.rec.mer.dupl) ) {
   if (opt$debug)
     cat(sprintf('%d duplicate match(es)', nrow(dt.rec.mer.dupl)))
   
