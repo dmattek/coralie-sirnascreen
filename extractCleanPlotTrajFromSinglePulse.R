@@ -12,7 +12,7 @@ require(data.table, quietly = T)
 require(R.utils, quietly = T)
 require(fuzzyjoin, quietly = T)
 require(optparse, quietly = T)
-require(ggplot2)
+require(ggplot2, quietly = T)
 require(readxl, quietly = T)
 
 ## Custom timeseries processing ----
@@ -196,6 +196,73 @@ LOCreadPar = function(in.fname, in.sheet.idx = 1) {
   return(l.par)
 }
 
+#' Check for the existence of a list element, add it to another list
+#'
+#' Given two lists and the name of the element, check for the existance of the element in the first list.
+#' If it exists, add it and its value to the second list.
+#' If it doesn't exist, add it to the second list and assign the default value.
+#'
+#' @param inLfrom List to check from.
+#' @param inLto List to add en element to.
+#' @param inCheckVal String with the name of a list element to check for, and to add the value stored by that element to the new list.
+#' @param inDefVal The default value. Assign it to inCheckVal if it doesn't exist the inLfrom list.
+#'
+#' @return List with an element added
+#' @export
+#'
+#' @examples
+#' 
+#' list1 = list(a = "text", b = 1)
+#' list2 = list()
+#' 
+#' # The element exists in list1 and will be added to list2
+#' LOCcheckAndAddListElem(list1, list2, "a", "default text")
+#' 
+#' # Element doesn't exist in list1. This element will be added to list2 with a default value
+#' LOCcheckAndAddListElem(list1, list2, "c", 0)
+#' 
+#' # Element doesn't exist in list1. This element will be added to list1 with a default value
+#' LOCcheckAndAddListElem(list1, inLto = NULL, "c", 0)
+#' 
+
+LOCcheckAndAddListElem = function(inLfrom, inLto = NULL, inCheckVal, inDefVal, inDeb = F) {
+  
+  locLreturn = NULL
+  
+  if (equals(inLfrom, inLto) | is.null(inLto)) {
+    # if checking in one list only:
+    # - if the element exists in inLfrom, do nothing
+    # - if the element doesn't exist in inLfrom, add the element to inLfrom and assign the default value
+    if (!exists(inCheckVal, where = inLfrom)) {
+      inLfrom[[inCheckVal]] = inDefVal
+      
+      if (inDeb)
+        cat(sprintf("Element %s doesn't exist in the inLfrom list. Adding it to inLfrom with a default value: %s\n",
+                    inCheckVal, inDefVal))
+    }
+    locLreturn = inLfrom
+  } else {
+    # if both lists are different objects, 
+    # - if the element exists in inLfrom, transfer the value from inLfrom to inLto, 
+    # - if the element doesn't exist in inLfrom, add the element to inLto and assign the default value
+    if (exists(inCheckVal, where = inLfrom)) {
+      inLto[[inCheckVal]] = inLfrom[[inCheckVal]]    
+      
+      if (inDeb)
+        cat(sprintf("Element %s exists in the inLfrom list. Transfering from inLfrom to inLto\n",
+                    inCheckVal))
+    } else {
+      inLto[[inCheckVal]] = inDefVal
+      
+      if (inDeb)
+        cat(sprintf("Element %s doesn't exist in the inLfrom list. Adding it to inLto with a default value: %s\n",
+                    inCheckVal, inDefVal))
+    }
+    locLreturn = inLto
+  }
+  
+  return(locLreturn)
+}
 
 ## Misc ----
 # keep desired number of significant digits in a data.table
@@ -233,9 +300,9 @@ opt_parser = optparse::OptionParser(option_list=option_list);
 opt = optparse::parse_args(opt_parser);
 
 # Temporary for executing from with RStudio
-#opt$rootdir = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per"
-#opt$plotformat = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per/plotFormat-5q50q.csv"
-#opt$debug = TRUE
+# opt$rootdir = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per"
+# opt$plotformat = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per/plotFormat-5q50q.csv"
+# opt$debug = TRUE
 
 if (is.null(opt$rootdir)){
   optparse::print_help(opt_parser)
@@ -263,29 +330,49 @@ cat(sprintf('Working in:\n%s\n\n', l.par$dir.root))
 
 l.col = list()
 
-l.col$imerk.cyto.ring.meanint = l.par$imerk.cyto.ring.meanint
-l.col$imerk.nuc.meanint       = l.par$imerk.nuc.meanint
-l.col$imerk.cell.meanint      = l.par$imerk.cell.meanint
-
-l.col$imnuc.nuc.meanint       = l.par$imnuc.nuc.meanint
-
-l.col$imrec.rec.meanint       = l.par$imrec.rec.meanint
-
-l.col$met.objnum = l.par$met.objnum
-l.col$met.fov = l.par$met.fov
-l.col$met.treat = l.par$met.treat
-l.col$met.group = l.par$met.group
-l.col$met.rt = l.par$met.rt
-l.col$met.frame = l.par$met.frame
-l.col$met.trackid = l.par$met.trackid
-
-l.col$pos.x = l.par$pos.x
-l.col$pos.y = l.par$pos.y
+# check for parameters present in l.par; add default values, if missing from the plotFormat file
+l.col = LOCcheckAndAddListElem(l.par, l.col, "imerk.cyto.ring.meanint", "objCyto_ring_Intensity_MeanIntensity_imErk")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "imerk.nuc.meanint", "objNuc_Intensity_MeanIntensity_imErk")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "imerk.cell.meanint", "obj_ring_Intensity_MeanIntensity_imErk")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "imnuc.nuc.meanint", "objNuc_Intensity_MeanIntensity_imNuc")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "imrec.rec.meanint", "obj_Rec_Intensity_MeanIntensity_imRec")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.objnum", "objNuc_ObjectNumber")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.fov", "Image_Metadata_Site")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.treat", "Stimulation_treatment")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.group", "Grouping")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.rt", "RealTime")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.frame", "Image_Metadata_T")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "met.trackid", "track_id")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "pos.x", "objNuc_Location_Center_X")
+l.col = LOCcheckAndAddListElem(l.par, l.col, "pos.y", "objNuc_Location_Center_Y")
 
 # col names to be assigned in this script
 l.col$joindist = 'join_dist'
 l.col$met.trackiduni = 'track_id_uni'
 l.col$ratioERK = 'ratioERK'
+
+# checking other parameters; assign defaults if absent from the plotFormt file
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "f.ts",  "objNuc_1line_clean_tracks.csv")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "f.rec", "objNuc.csv")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "f.pm",  "platemap.xlsx")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "ts.maxbreak", 1)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "ts.maxframebase", 5)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "ts.stimt", 9)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "ts.freq", 1)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.stim.h", 0.25)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.yaxis.min", 0.0)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.yaxis.max", 1.5)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.col.summary", "#D65252")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.col.stim", "#4879EF")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.xlab", 'Time (min)')
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.ylab", 'C/N ERK-KTR')
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "rec.int.min", 0.05)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "rec.int.max",  0.5)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "max.dist", 10)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "f.out.ts", "tCoursesSelected_cleaned.csv")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "f.out.rec", "receptorMatchedToTracks_cleaned.csv")
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "cytoNucRatio", TRUE)
+
 
 # initialsie plot list
 l.p = list()
@@ -551,7 +638,12 @@ rm(dir.tmp, fname.tmp)
 ## Plot single-cell trime series ----
 
 # Add metadata to single-cell timeseries
-dt.ts[, (l.col$ratioERK) := get(l.col$imerk.cyto.ring.meanint) / get(l.col$imerk.nuc.meanint)]
+
+if (l.par$cytoNucRatio) {
+  dt.ts[, (l.col$ratioERK) := get(l.col$imerk.cyto.ring.meanint) / get(l.col$imerk.nuc.meanint)]
+} else {
+  dt.ts[, (l.col$ratioERK) := get(l.col$imerk.nuc.meanint)]
+}
 
 dt.ts.plot = dt.ts[, c(l.col$met.fov, l.col$met.frame, l.col$met.trackiduni, l.col$ratioERK), with = F]
 dt.ts.plot = merge(dt.ts.plot, 
@@ -567,26 +659,40 @@ dt.ts.plot[, (l.col$met.frame) := NULL]
 v.grouping = unique(dt.ts.plot[['Grouping']])
 s.dir.plots = file.path(l.par$dir.root, l.par$dir.plots)
 
+cat(sprintf('\nSaving plots in:\n%s\n\n', s.dir.plots))
+
 if(!dir.exists(s.dir.plots))
   dir.create(s.dir.plots)
+
 
 # temp dt with coordinates of a segment to indicate stimulation
 dt.stim = data.table(x = l.par$ts.stimt,
                      xend = l.par$ts.stimt,
-                     y = 0.0,
-                     yend = 0.25,
+                     y = l.par$plot.yaxis.min,
+                     yend = l.par$plot.yaxis.min + l.par$plot.stim.h,
                      group = 1)
 
-lapply(v.grouping, function(x) {
+l.dummy = lapply(v.grouping, function(x) {
   locP = ggplot(data = dt.ts.plot[get(l.col$met.group) == x], 
-                aes_string(x = l.col$met.rt, y = l.col$ratioERK, group = l.col$met.trackiduni)) +
+                aes_string(x = l.col$met.rt, 
+                           y = l.col$ratioERK, 
+                           group = l.col$met.trackiduni)) +
     geom_line(alpha = 0.1) +
-    geom_segment(data = dt.stim, aes(x = x, xend = xend, y = y, yend = yend, group = group), color = 'blue') +
+    geom_segment(data = dt.stim, 
+                 aes(x = x, xend = xend, 
+                     y = y, yend = yend, 
+                     group = group), 
+                 color = l.par$plot.col.stim) +
     facet_wrap(as.formula(paste0('~', l.col$met.treat, '+', l.col$met.fov))) +
-    stat_summary(fun.y=mean, geom="line", lwd=1, color = 'red', aes(group=1)) +
-    xlab('Time (min)') +
-    ylab('C/N ERK-KTR') +
-    coord_cartesian(ylim = c(0, 1.5)) +
+    stat_summary(fun.y=mean, 
+                 aes(group=1),
+                 geom="line", 
+                 lwd=1, 
+                 color = l.par$plot.col.summary) +
+    xlab(l.par$plot.xlab) +
+    ylab(l.par$plot.ylab) +
+    coord_cartesian(ylim = c(l.par$plot.yaxis.min, 
+                             l.par$plot.yaxis.max)) +
     theme_bw()
   
   locFname = file.path(s.dir.plots, sprintf('tcourses_group%02d.pdf', x))
@@ -597,21 +703,28 @@ lapply(v.grouping, function(x) {
 
 # Plot population averages ----
 
-dt.ts.plot.aggr = dt.ts.plot[, .(xxx = mean(get(l.col$ratioERK))), by = c(l.col$met.group, l.col$met.treat, l.col$met.rt)]
+dt.ts.plot.aggr = dt.ts.plot[, 
+                             .(xxx = mean(get(l.col$ratioERK))), 
+                             by = c(l.col$met.group,
+                                    l.col$met.treat, 
+                                    l.col$met.rt)]
 setnames(dt.ts.plot.aggr, 'xxx', l.col$ratioERK)
 
-lapply(v.grouping, function(x) {
+l.dummy = lapply(v.grouping, function(x) {
   locP = ggplot(data = dt.ts.plot.aggr[get(l.col$met.group) == x], 
                 aes_string(x = l.col$met.rt, 
                            y = l.col$ratioERK)) +
     geom_line(aes_string(color = l.col$met.treat)) +
     geom_segment(data = dt.stim, 
-                 aes(x = x, xend = xend, y = y, yend = yend, group = group), 
-                 color = 'blue') +
+                 aes(x = x, xend = xend, 
+                     y = y, yend = yend, 
+                     group = group), 
+                 color = l.par$plot.col.stim) +
     scale_color_discrete('siRNA:') +
-    xlab('Time (min)') +
-    ylab('C/N ERK-KTR') +
-    coord_cartesian(ylim = c(0, 1.5)) +
+    xlab(l.par$plot.xlab) +
+    ylab(l.par$plot.ylab) +
+    coord_cartesian(ylim = c(l.par$plot.yaxis.min, 
+                             l.par$plot.yaxis.max)) +
     theme_bw()
   
   locFname = file.path(s.dir.plots, sprintf('averages_group%02d.pdf', x))
@@ -623,7 +736,7 @@ lapply(v.grouping, function(x) {
 
 # Plot distributions ----
 
-Map(function (x, i) {
+l.dummy = Map(function (x, i) {
   
   locFname = file.path(s.dir.plots, sprintf('densities_%s.pdf', i))
   ggsave(filename = locFname, plot = x, width = 5, height = 4)
