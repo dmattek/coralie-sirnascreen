@@ -656,7 +656,7 @@ dt.ts.plot[, (l.col$met.rt) := get(l.col$met.frame) * l.par$ts.freq]
 dt.ts.plot[, (l.col$met.frame) := NULL]
 
 # create & save plots per functional group
-v.grouping = unique(dt.ts.plot[['Grouping']])
+v.grouping = unique(dt.ts.plot[[l.col$met.group]])
 s.dir.plots = file.path(l.par$dir.root, l.par$dir.plots)
 
 cat(sprintf('\nSaving plots in:\n%s\n\n', s.dir.plots))
