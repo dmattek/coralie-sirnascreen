@@ -300,9 +300,9 @@ opt_parser = optparse::OptionParser(option_list=option_list);
 opt = optparse::parse_args(opt_parser);
 
 # Temporary for executing from with RStudio
-# opt$rootdir = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per"
-# opt$plotformat = "~/Projects/Olivier/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per/plotFormat-5q50q.csv"
-# opt$debug = TRUE
+#opt$rootdir = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646"
+#opt$plotformat = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646/plotFormat-5q95q.csv"
+#opt$debug = TRUE
 
 if (is.null(opt$rootdir)){
   optparse::print_help(opt_parser)
@@ -445,6 +445,9 @@ rm(dt.ts.base)
 
 
 # Clean receptor data ----
+
+# remove possible NA's in the receptor measurement column
+dt.rec = dt.rec[!is.na(get(l.col$imrec.rec.meanint))]
 
 # Calculate quantiles by taking the region defined in the input parameter file
 v.quantiles = quantile(x = dt.rec[[l.col$imrec.rec.meanint]], probs = c(l.par$rec.int.min, l.par$rec.int.max))
