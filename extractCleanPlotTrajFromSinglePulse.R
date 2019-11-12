@@ -682,7 +682,7 @@ l.dummy = lapply(v.grouping, function(x) {
                 aes_string(x = l.col$met.rt, 
                            y = l.col$ratioERK, 
                            group = l.col$met.trackiduni)) +
-    geom_line(alpha = 0.1) +
+    geom_line(alpha = l.par$plot.line.alpha, size = l.par$plot.line.size) +
     geom_segment(data = dt.stim, 
                  aes(x = x, xend = xend, 
                      y = y, yend = yend, 
