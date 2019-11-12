@@ -366,6 +366,8 @@ l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.col.summary", "#D65252
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.col.stim", "#4879EF")
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.xlab", 'Time (min)')
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.ylab", 'C/N ERK-KTR')
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.line.alpha", 0.1)
+l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "plot.line.size", 0.2)
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "rec.int.min", 0.05)
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "rec.int.max",  0.5)
 l.par = LOCcheckAndAddListElem(l.par, inLto = NULL, "max.dist", 10)
