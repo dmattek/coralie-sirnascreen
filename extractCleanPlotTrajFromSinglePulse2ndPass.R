@@ -188,7 +188,7 @@ option_list = list(
                         help="full path to root directory", metavar="character"),
   optparse::make_option(c("-f", "--plotformat"), type="character", default=NULL, 
                         help="full path to file with parameters of the analysis, csv or xlsx e.g. cp.out/plotFormat.xlsx", metavar="character"),
-  optparse::make_option(c("-d", "--opt$debug"), action="store_true", default = FALSE, dest = 'debug', 
+  optparse::make_option(c("-d", "--debug"), action="store_true", default = FALSE, dest = 'debug', 
                         help="Print extra output")
 ); 
 
@@ -197,9 +197,9 @@ opt = optparse::parse_args(opt_parser)
 
 # Temporary for executing from with RStudio
 
-#opt$rootdir = "~/Projects.tmp/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per"
-#opt$plotformat = "~/Projects.tmp/Coralie/20191014_NIH3T3_syst_optoFGFR1_siPOOL_100ms100per/plotFormat-5q50q.csv"
-# opt$debug = TRUE
+#opt$rootdir = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646"
+#opt$plotformat = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646/plotFormat-5q95q.csv"
+#opt$debug = TRUE
 
 if (is.null(opt$rootdir)){
   optparse::print_help(opt_parser)
@@ -288,7 +288,7 @@ l.dummy = lapply(v.grouping, function(x) {
                      y = y, yend = yend, 
                      group = group), 
                  color = l.par$plot.col.stim) +
-    facet_wrap(as.formula(paste0('~', l.col$met.treat, '+', l.col$met.fov))) +
+    facet_wrap(as.formula(paste0('~ ', l.col$met.treat, ' + ', l.col$met.fov))) +
     stat_summary(fun.y=mean, 
                  aes(group=1),
                  geom="line", 

@@ -292,7 +292,7 @@ option_list = list(
                         help="full path to root directory", metavar="character"),
   optparse::make_option(c("-f", "--plotformat"), type="character", default=NULL, 
                         help="full path to file with parameters of the analysis, csv or xlsx e.g. cp.out/plotFormat.xlsx", metavar="character"),
-  optparse::make_option(c("-d", "--opt$debug"), action="store_true", default = FALSE, dest = 'debug', 
+  optparse::make_option(c("-d", "--debug"), action="store_true", default = FALSE, dest = 'debug', 
                         help="Print extra output")
 ); 
 
@@ -300,8 +300,8 @@ opt_parser = optparse::OptionParser(option_list=option_list);
 opt = optparse::parse_args(opt_parser);
 
 # Temporary for executing from with RStudio
-#opt$rootdir = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646"
-#opt$plotformat = "~/Projects.tmp/Coralie/20191111_siPOOLs_doseResponse_RNAextraction/20191111_084742_646/plotFormat-5q95q.csv"
+#opt$rootdir = "~/Projects.tmp/Coralie/20200121_sys_optoFGFR1_siPOOLs_10nM_threePulses_100per100ms"
+#opt$plotformat = "~/Projects.tmp/Coralie/20200121_sys_optoFGFR1_siPOOLs_10nM_threePulses_100per100ms/plotFormat-5q95q.csv"
 #opt$debug = TRUE
 
 if (is.null(opt$rootdir)){
@@ -406,7 +406,7 @@ dt.ts = dt.ts[get(l.col$imerk.cyto.ring.meanint) > 0]
 
 # 2. Extract uninterrupted timecourses
 # max 1-frame break (can be many breaks)
-# Trajectories that last entire experiment
+# Trajectories that last for the entire experiment
 
 # select only columns with usefull measurements (Intensity, AreaShape, Position)
 # used for interpolation?
@@ -434,7 +434,6 @@ l.p$dens.ts = ggplot(data = dt.ts.base, aes_string(x = paste0('log10(xxx)'))) +
   ggtitle('Distribution of ERK-KTR mean fl.int. from the whole\narea bounded by the outer edge of the ring') +
   theme_bw()
 
-#l.p$dens.ts
 
 # keep tracks with baseline above the threshold
 setkeyv(dt.ts, l.col$met.trackiduni)
@@ -454,12 +453,12 @@ dt.rec = dt.rec[!is.na(get(l.col$imrec.rec.meanint))]
 # Calculate quantiles by taking the region defined in the input parameter file
 v.quantiles = quantile(x = dt.rec[[l.col$imrec.rec.meanint]], probs = c(l.par$rec.int.min, l.par$rec.int.max))
 
-# make a plot for QC; save later to a file
+# historgram with mean fl.int. of the receptor from the whol-cell area for QC; save later to a file
 l.p$dens.rec = ggplot(data = dt.rec, aes_string(x = paste0('log10(', l.col$imrec.rec.meanint, ')'))) +
   geom_density() +
   geom_vline(xintercept = log10(v.quantiles), colour = 'red', linetype = 2) +
   xlab(paste0('log10 ', l.col$imrec.rec.meanint)) +
-  ggtitle('Distribution of Receptor mean fl.int. from\nthe whole-cell area') +
+  ggtitle('Distribution of receptor mean fl.int. from\nthe whole-cell area') +
   theme_bw()
 
 # select a percentile region of receptor intensities
@@ -489,6 +488,8 @@ dt.rec.tmp = dt.rec[, c(l.col$met.fov,
                         l.col$met.objnum,
                         v.cols.join), with = F]
 
+
+
 # rescale data; necessary if intensities also used together with position for fuzzy merge
 # dt.rec.tmp[, (v.cols.join) := lapply(.SD, function(x) as.vector(scale(x))), by = c(l.col$met.fov), .SDcols = v.cols.join]
 
@@ -501,6 +502,7 @@ dt.rec.tmp = dt.rec[, c(l.col$met.fov,
 vFOVs = sort(unique(dt.ts.lastframe[[l.col$met.fov]]))
 
 l.mer = lapply(vFOVs, function(x) {
+
   # data for a single frame
   loc.dt.ts  = dt.ts.lastframe[get(l.col$met.fov) == x]
   loc.dt.rec = dt.rec.tmp[get(l.col$met.fov) == x, 
@@ -517,9 +519,10 @@ l.mer = lapply(vFOVs, function(x) {
   }
     
   # Perform fuzzyjoin only if both tables have measurements
+  # Keep all receptor data (left-join) even if unmatched to time series
   if (loc.nrow.dt.ts & loc.nrow.dt.rec) {
-    loc.dt = fuzzyjoin::distance_join(x = loc.dt.ts, 
-                                      y = loc.dt.rec,
+    loc.dt = fuzzyjoin::distance_join(x = loc.dt.rec, 
+                                      y = loc.dt.ts,
                                       method = "euclidean",
                                       by = v.cols.join,
                                       max_dist = l.par$max.dist,
@@ -536,81 +539,106 @@ l.mer = lapply(vFOVs, function(x) {
       loc.dt[, (l.col$joindist) := NA]
       
       if (opt$debug)
-        cat("   fuzzyjoin did not find any matching records from y\n")
+        cat("   fuzzyjoin was not able to match any receptor to time series\n")
+    }
+    
+    if (nrow(loc.dt) == 0) {
+      loc.dt = NULL
+      if (opt$debug)
+        cat("   the reult of fuzzy join has zero rows; return NULL dt\n")
     }
     
   } else {
     loc.dt = NULL
     if (opt$debug)
-      cat("   fuzzyjoin not performed\n")
+      cat("   either receptor or time series data have 0 rows; fuzzyjoin not performed; return NULL dt\n")
   }
-  
   
   return(loc.dt)
 })
 
-
-# select list elements with nrows > 0
-l.mer = Filter(nrow, l.mer)
-
 # convert list to data.table
-dt.rec.mer = do.call(rbind, l.mer)
+dt.rec.matchedToTS = rbindlist(l.mer)
 
 # clean
 rm(l.mer, dt.rec.tmp, dt.ts.lastframe, v.cols.join, vFOVs)
 
-# report the number of unmatched cells
+# report the number of unmatched time series
 # failure to match comes from too large of a distance between closest matches (see l.par$max.dist)
 # such tracks will be removed from the dataset
-dt.rec.mer.fail = dt.rec.mer[is.na(dt.rec.mer[[l.col$joindist]])]
-n.failedmatches = nrow(dt.rec.mer.fail)
+dt.rec.matchedToTS.fail = unique(dt.rec.matchedToTS[is.na(dt.rec.matchedToTS[[l.col$joindist]])])
+n.failedmatches = nrow(dt.rec.matchedToTS.fail)
 
 if (n.failedmatches > 0 ) {
   if (opt$debug)
-    cat(sprintf("%d track(s) failed to match with receptor snapshot\n", n.failedmatches))
+    cat(sprintf("%d receptor(s) out of %d failed to match with any time series\n", n.failedmatches, nrow(dt.rec.matchedToTS)))
   
   # remove failed matches from receptor dataset
-  dt.rec.mer = dt.rec.mer[!is.na(dt.rec.mer[[l.col$joindist]])]
+  dt.rec.matchedToTS = dt.rec.matchedToTS[!is.na(get(l.col$joindist))]
   
   # remove failed matches from time course data
-  setkeyv(dt.rec.mer.fail, c(l.col$met.fov, l.col$met.trackid))
-  setkeyv(dt.ts, c(l.col$met.fov, l.col$met.trackid))
-  dt.ts = dt.ts[!dt.rec.mer.fail]
-  
-  rm(dt.rec.mer.fail)
+  # setkeyv(dt.rec.mer.fail, c(l.col$met.fov, l.col$met.trackid))
+  # setkeyv(dt.ts, c(l.col$met.fov, l.col$met.trackid))
+  # dt.ts = dt.ts[!dt.rec.mer.fail]
+
 }
 
-rm(n.failedmatches)
+rm(dt.rec.matchedToTS.fail, n.failedmatches)
 
 
-# If two objects are close within the threshold, fuzzy_join will join two objects from y
-# here, we take the closest match
+# If two objects are close within the threshold, fuzzy_join will join 
+# two different receptors to the same time series track id.
+# Here, we take the closest match
 
-dt.rec.mer.dupl = dt.rec.mer[(duplicated(dt.rec.mer[, c(l.col$met.fov, l.col$met.trackid), with = F]))]
+dt.rec.matchedToTS.dupl = dt.rec.matchedToTS[(duplicated(dt.rec.matchedToTS[, 
+                                                    c(l.col$met.fov, 
+                                                      l.col$met.trackid), 
+                                                    with = F]))]
 
-if (nrow(dt.rec.mer.dupl) ) {
+if (nrow(dt.rec.matchedToTS.dupl) ) {
   if (opt$debug)
-    cat(sprintf('%d duplicate match(es)', nrow(dt.rec.mer.dupl)))
+    cat(sprintf('%d duplicate match(es)\n
+                different receptors matched to the same time series; taking the closest receptor only!', nrow(dt.rec.matchedToTS.dupl)))
   
   # From: https://stackoverflow.com/a/55279497/1898713
-  # Order by join_dist for every unique FOV & trackID, take first element
-  dt.rec.mer = setorderv(dt.rec.mer, c(l.col$met.fov, l.col$met.trackid, l.col$joindist))[, .SD[1L], by = c(l.col$met.fov, l.col$met.trackid)]
-  
-  rm(dt.rec.mer.dupl)
+  # Order by join_dist for every unique FOV & trackID, take the first element
+  dt.rec.matchedToTS = setorderv(dt.rec.matchedToTS, 
+                         c(l.col$met.fov, 
+                           l.col$met.trackid, 
+                           l.col$joindist))[, .SD[1L], 
+                                            by = c(l.col$met.fov, 
+                                                   l.col$met.trackid)]
 }
+rm(dt.rec.matchedToTS.dupl)
 
 # create final receptor dt
-dt.rec.final = merge(dt.rec[, c(l.col$met.fov, 
-                                l.col$met.objnum, 
-                                l.col$imrec.rec.meanint ), with = F], 
-                     dt.rec.mer[, c(l.col$met.fov, 
-                                    l.col$met.objnum, 
-                                    l.col$met.trackid), with = F])
+dt.rec.final = merge(dt.rec[, 
+                            c(l.col$met.fov, 
+                              l.col$met.objnum, 
+                              l.col$imrec.rec.meanint ), 
+                            with = F], 
+                     dt.rec.matchedToTS[, 
+                                        c(l.col$met.fov, 
+                                          l.col$met.objnum, 
+                                          l.col$met.trackid), 
+                                        with = F])
 
-rm(dt.rec, dt.rec.mer)
+rm(dt.rec, dt.rec.matchedToTS)
 
 
-# Save data ----  
+# Kepp only those time series that have a match in receptor data.
+# The final dataset also omits receptor data removed based on tails 
+# of the distribution of the total receptor fluorescence.
+setkeyv(dt.ts, c(l.col$met.fov, l.col$met.trackid))
+setkeyv(dt.rec.final, c(l.col$met.fov, l.col$met.trackid))
+
+dt.ts.final = dt.ts[dt.rec.final[, 
+                                 c(l.col$met.fov, 
+                                   l.col$met.trackid,
+                                   l.col$imrec.rec.meanint),
+                                 with = F]]
+
+# Save data ----
 dir.tmp = file.path(l.par$dir.root, l.par$dir.data)
 cat(sprintf('\nSaving data in:\n%s\n\n', dir.tmp))
 
@@ -618,25 +646,25 @@ cat(sprintf('\nSaving data in:\n%s\n\n', dir.tmp))
 if(!dir.exists(dir.tmp))
   dir.create(dir.tmp)
 
-
+# receptor matched to time series
 fname.tmp = file.path(dir.tmp, l.par$f.out.rec)
 if (opt$debug)
-  cat(sprintf("Writing receptor data to\n%s\n\n", fname.tmp))
-
+  cat(sprintf("Writing receptor data matched to time series to\n%s\n\n", fname.tmp))
 fwrite(x = LOCsignif_dt(dt.rec.final, 6), file = fname.tmp)
 gzip(fname.tmp, overwrite = T)
 
-# time series
-dt.ts.final = dt.ts[, names(dt.ts)[!(names(dt.ts) %in% l.col$met.trackiduni)], with = F]
-
+# time series; only those that have a match in receptor
+# if receptor intensities are chosen from a range; only time series matched to those recepotrs will be saved!
 fname.tmp = file.path(dir.tmp, l.par$f.out.ts)
 if (opt$debug)
-  cat(sprintf("Writing time series data to\n%s\n\n", fname.tmp))
+  cat(sprintf("Writing time series data matched to receptors to\n%s\n\n", fname.tmp))
 
-fwrite(x = LOCsignif_dt(dt.ts.final, 6), file = fname.tmp)
+# remove unique track ID from writing; can be reconstrucetd from FOV/trackID
+fwrite(x = LOCsignif_dt(dt.ts.final[, 
+                                    names(dt.ts.final)[!(names(dt.ts.final) %in% l.col$met.trackiduni)], 
+                                    with = F], 
+                        6), file = fname.tmp)
 gzip(fname.tmp, overwrite = T)
-rm(dt.ts.final)
-
 rm(dir.tmp, fname.tmp)
 
 
@@ -645,12 +673,12 @@ rm(dir.tmp, fname.tmp)
 # Add metadata to single-cell timeseries
 
 if (l.par$cytoNucRatio) {
-  dt.ts[, (l.col$ratioERK) := get(l.col$imerk.cyto.ring.meanint) / get(l.col$imerk.nuc.meanint)]
+  dt.ts.final[, (l.col$ratioERK) := get(l.col$imerk.cyto.ring.meanint) / get(l.col$imerk.nuc.meanint)]
 } else {
-  dt.ts[, (l.col$ratioERK) := get(l.col$imerk.nuc.meanint)]
+  dt.ts.final[, (l.col$ratioERK) := get(l.col$imerk.nuc.meanint)]
 }
 
-dt.ts.plot = dt.ts[, c(l.col$met.fov, l.col$met.frame, l.col$met.trackiduni, l.col$ratioERK), with = F]
+dt.ts.plot = dt.ts.final[, c(l.col$met.fov, l.col$met.frame, l.col$met.trackiduni, l.col$ratioERK), with = F]
 dt.ts.plot = merge(dt.ts.plot, 
                    dt.pm[, c('Position', 'Well', 'Stimulation_treatment', 'Grouping'), with = F], 
                    by.x = l.col$met.fov, 
